@@ -1,8 +1,11 @@
 'use client';
 
-import { useAuth } from '@/hooks/use-auth';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
+import { useMemo, useState } from 'react';
+import { useMenuItems } from '@/hooks/use-menu-items';
+import { usePrepList } from '@/hooks/use-prep-list';
+import { useStations } from '@/hooks/use-stations';
+import { generatePrepList } from '@/app/actions/prep';
+import { toast } from 'sonner';
 import {
     Card,
     CardContent,
@@ -10,123 +13,214 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 
-export default function AdminPage() {
-    const { user, profile, signOut, isLoading } = useAuth();
-    const router = useRouter();
+function todayString() {
+    return new Date().toISOString().slice(0, 10);
+}
 
-    async function handleSignOut() {
-        await signOut();
-        router.push('/login');
-    }
+export default function AdminDashboard() {
+    const today = todayString();
+    const { data: prepList, isLoading: listLoading, refetch } = usePrepList(today);
+    const { data: menuItems } = useMenuItems();
+    const { data: stations } = useStations();
+    const [generating, setGenerating] = useState(false);
 
-    if (isLoading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-background">
-                <div className="flex items-center gap-3 text-muted-foreground">
-                    <svg
-                        className="animate-spin h-5 w-5"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                    >
-                        <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                        />
-                        <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                        />
-                    </svg>
-                    <span>Loading…</span>
-                </div>
-            </div>
-        );
+    const stats = useMemo(() => {
+        const tasks = prepList?.prep_tasks ?? [];
+        const total = tasks.length;
+        const done = tasks.filter((t) => t.status === 'done').length;
+        const inProgress = tasks.filter(
+            (t) => t.status === 'in_progress'
+        ).length;
+        const pending = tasks.filter((t) => t.status === 'pending').length;
+        const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+        return { total, done, inProgress, pending, pct };
+    }, [prepList]);
+
+    async function handleGenerate() {
+        setGenerating(true);
+        try {
+            const result = await generatePrepList(today);
+            toast.success(`Prep list generated — ${result.taskCount} tasks`);
+            refetch();
+        } catch (err) {
+            toast.error('Failed to generate', {
+                description:
+                    err instanceof Error ? err.message : 'Unknown error',
+            });
+        } finally {
+            setGenerating(false);
+        }
     }
 
     return (
-        <div className="min-h-screen bg-background">
-            {/* Top bar */}
-            <header className="border-b border-border/50 bg-card/50 backdrop-blur-sm">
-                <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-4">
-                    <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-lg bg-accent flex items-center justify-center">
-                            <span className="text-white font-bold text-sm">P</span>
-                        </div>
-                        <div>
-                            <h1 className="font-semibold text-foreground">
-                                Admin Dashboard
-                            </h1>
-                            <p className="text-xs text-muted-foreground">
-                                {profile?.full_name ?? user?.email}
+        <div className="p-6 md:p-8 space-y-8 max-w-6xl">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-4">
+                <div>
+                    <h1 className="text-2xl font-bold tracking-tight">
+                        Dashboard
+                    </h1>
+                    <p className="text-muted-foreground text-sm mt-1">
+                        {new Date().toLocaleDateString('en-US', {
+                            weekday: 'long',
+                            month: 'long',
+                            day: 'numeric',
+                            year: 'numeric',
+                        })}
+                    </p>
+                </div>
+                <Button
+                    onClick={handleGenerate}
+                    disabled={generating}
+                    className="bg-accent hover:bg-accent/90 text-white"
+                >
+                    {generating ? 'Generating…' : "Generate Today's Prep"}
+                </Button>
+            </div>
+
+            {/* Stats row */}
+            <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardDescription className="text-xs">
+                            Total Tasks
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {listLoading ? (
+                            <Skeleton className="h-8 w-16" />
+                        ) : (
+                            <p className="text-3xl font-bold">
+                                {stats.total}
                             </p>
+                        )}
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardDescription className="text-xs">
+                            Completed
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {listLoading ? (
+                            <Skeleton className="h-8 w-16" />
+                        ) : (
+                            <p className="text-3xl font-bold text-emerald-500">
+                                {stats.done}
+                            </p>
+                        )}
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardDescription className="text-xs">
+                            In Progress
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {listLoading ? (
+                            <Skeleton className="h-8 w-16" />
+                        ) : (
+                            <p className="text-3xl font-bold text-amber-500">
+                                {stats.inProgress}
+                            </p>
+                        )}
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader className="pb-2">
+                        <CardDescription className="text-xs">
+                            Pending
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {listLoading ? (
+                            <Skeleton className="h-8 w-16" />
+                        ) : (
+                            <p className="text-3xl font-bold text-muted-foreground">
+                                {stats.pending}
+                            </p>
+                        )}
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Progress */}
+            {prepList && stats.total > 0 && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-lg">
+                            Today&apos;s Progress
+                        </CardTitle>
+                        <CardDescription>
+                            {stats.pct}% complete
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Progress value={stats.pct} className="h-3" />
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Quick info */}
+            <div className="grid gap-4 md:grid-cols-2">
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-lg">Menu Items</CardTitle>
+                        <CardDescription>
+                            Active items across all stations
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-4xl font-bold mb-3">
+                            {menuItems?.length ?? '—'}
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                            {stations?.map((s) => (
+                                <Badge
+                                    key={s.id}
+                                    variant="outline"
+                                    className="text-xs"
+                                    style={{
+                                        borderColor: s.color,
+                                        color: s.color,
+                                    }}
+                                >
+                                    {s.name}
+                                </Badge>
+                            ))}
                         </div>
-                    </div>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleSignOut}
-                        className="text-muted-foreground hover:text-foreground"
-                    >
-                        Sign Out
-                    </Button>
-                </div>
-            </header>
+                    </CardContent>
+                </Card>
 
-            {/* Body */}
-            <main className="max-w-7xl mx-auto px-6 py-10">
-                <div className="grid gap-6 md:grid-cols-3">
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-lg">Profile</CardTitle>
-                            <CardDescription>Your account details</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-2 text-sm">
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Name</span>
-                                <span className="font-medium">
-                                    {profile?.full_name ?? '—'}
-                                </span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Email</span>
-                                <span className="font-medium">{user?.email ?? '—'}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Role</span>
-                                <span className="font-medium capitalize">
-                                    {profile?.role ?? '—'}
-                                </span>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-lg">Quick Stats</CardTitle>
-                            <CardDescription>At a glance</CardDescription>
-                        </CardHeader>
-                        <CardContent className="text-sm text-muted-foreground">
-                            <p>Dashboard content coming soon…</p>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-lg">Actions</CardTitle>
-                            <CardDescription>Admin tools</CardDescription>
-                        </CardHeader>
-                        <CardContent className="text-sm text-muted-foreground">
-                            <p>Management features coming soon…</p>
-                        </CardContent>
-                    </Card>
-                </div>
-            </main>
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="text-lg">
+                            Kitchen View
+                        </CardTitle>
+                        <CardDescription>
+                            Share this link with your kitchen crew
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <code className="text-sm bg-muted px-3 py-2 rounded-md block">
+                            /kitchen
+                        </code>
+                        <p className="text-xs text-muted-foreground mt-2">
+                            No login required — cooks can access directly
+                        </p>
+                    </CardContent>
+                </Card>
+            </div>
         </div>
     );
 }
