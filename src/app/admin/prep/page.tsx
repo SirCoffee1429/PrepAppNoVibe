@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
-import { Skeleton } from '@/components/ui/skeleton';
+import { TableCell, TableRow } from '@/components/ui/table';
 import {
     Card,
     CardContent,
@@ -16,21 +16,21 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
 
-const STATUS_COLORS: Record<string, string> = {
-    pending: 'bg-slate-100 text-slate-600',
-    in_progress: 'bg-amber-100 text-amber-700',
-    done: 'bg-emerald-100 text-emerald-700',
-    skipped: 'bg-rose-100 text-rose-600',
-};
+import { PageHeader } from '@/components/layout/page-header';
+import { EmptyState } from '@/components/layout/empty-state';
+import { DataTable } from '@/components/data-table';
+import { StationBadge } from '@/components/station-badge';
+import { StatusBadge } from '@/components/status-badge';
+
+const COLUMNS = [
+    { header: 'Item', skeletonWidth: 'w-28' },
+    { header: 'Station', skeletonWidth: 'w-20' },
+    { header: 'Needed', headerClassName: 'text-center', skeletonWidth: 'w-12' },
+    { header: 'Done', headerClassName: 'text-center', skeletonWidth: 'w-12' },
+    { header: 'Status', headerClassName: 'text-center', skeletonWidth: 'w-16' },
+    { header: 'Progress', headerClassName: 'text-right', skeletonWidth: 'w-20' },
+];
 
 function todayString() {
     return new Date().toISOString().slice(0, 10);
@@ -43,7 +43,8 @@ export default function PrepListPage() {
 
     const tasks = prepList?.prep_tasks ?? [];
     const totalDone = tasks.filter((t) => t.status === 'done').length;
-    const pct = tasks.length > 0 ? Math.round((totalDone / tasks.length) * 100) : 0;
+    const pct =
+        tasks.length > 0 ? Math.round((totalDone / tasks.length) * 100) : 0;
 
     async function handleGenerate() {
         setGenerating(true);
@@ -62,35 +63,32 @@ export default function PrepListPage() {
 
     return (
         <div className="p-6 md:p-8 max-w-6xl space-y-6">
-            <div className="flex items-start justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">
-                        Prep Lists
-                    </h1>
-                    <p className="text-muted-foreground text-sm mt-1">
-                        Generate and view daily prep lists
-                    </p>
-                </div>
-                <div className="flex items-center gap-2">
-                    <Input
-                        type="date"
-                        value={date}
-                        onChange={(e) => setDate(e.target.value)}
-                        className="w-auto"
-                    />
-                    <Button
-                        onClick={handleGenerate}
-                        disabled={generating}
-                        className="bg-accent hover:bg-accent/90 text-white whitespace-nowrap"
-                    >
-                        {generating ? 'Generating…' : 'Generate'}
-                    </Button>
-                </div>
-            </div>
+            <PageHeader
+                title="Prep Lists"
+                description="Generate and view daily prep lists"
+                actions={
+                    <>
+                        <Input
+                            type="date"
+                            value={date}
+                            onChange={(e) => setDate(e.target.value)}
+                            className="w-auto"
+                            aria-label="Select prep date"
+                        />
+                        <Button
+                            onClick={handleGenerate}
+                            disabled={generating}
+                            className="bg-accent hover:bg-accent/90 text-white whitespace-nowrap"
+                        >
+                            {generating ? 'Generating…' : 'Generate'}
+                        </Button>
+                    </>
+                }
+            />
 
             {/* Summary card */}
             {prepList && tasks.length > 0 && (
-                <Card>
+                <Card className="animate-slide-up">
                     <CardHeader className="pb-3">
                         <div className="flex items-center justify-between">
                             <div>
@@ -120,109 +118,67 @@ export default function PrepListPage() {
                 </Card>
             )}
 
-            {/* Tasks table */}
-            {isLoading ? (
-                <div className="space-y-3">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                        <Skeleton key={i} className="h-12 w-full" />
-                    ))}
-                </div>
-            ) : tasks.length > 0 ? (
-                <div className="border rounded-lg overflow-hidden">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Item</TableHead>
-                                <TableHead>Station</TableHead>
-                                <TableHead className="text-center">
-                                    Needed
-                                </TableHead>
-                                <TableHead className="text-center">
-                                    Done
-                                </TableHead>
-                                <TableHead className="text-center">
-                                    Status
-                                </TableHead>
-                                <TableHead className="text-right">
-                                    Progress
-                                </TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {tasks.map((task) => {
-                                const taskPct =
-                                    task.quantity_needed > 0
-                                        ? Math.round(
-                                            (task.quantity_done /
-                                                task.quantity_needed) *
-                                            100
-                                        )
-                                        : 0;
-                                return (
-                                    <TableRow key={task.id}>
-                                        <TableCell className="font-medium">
-                                            {task.menu_item?.name ?? '—'}
-                                        </TableCell>
-                                        <TableCell>
-                                            {task.menu_item?.station && (
-                                                <Badge
-                                                    variant="outline"
-                                                    className="text-xs"
-                                                    style={{
-                                                        borderColor:
-                                                            task.menu_item
-                                                                .station.color,
-                                                        color: task.menu_item
-                                                            .station.color,
-                                                    }}
-                                                >
-                                                    {
-                                                        task.menu_item.station
-                                                            .name
-                                                    }
-                                                </Badge>
-                                            )}
-                                        </TableCell>
-                                        <TableCell className="text-center tabular-nums">
-                                            {task.quantity_needed}
-                                        </TableCell>
-                                        <TableCell className="text-center tabular-nums">
-                                            {task.quantity_done}
-                                        </TableCell>
-                                        <TableCell className="text-center">
-                                            <span
-                                                className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[task.status] ?? ''}`}
-                                            >
-                                                {task.status.replace('_', ' ')}
-                                            </span>
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <div className="flex items-center gap-2 justify-end">
-                                                <Progress
-                                                    value={taskPct}
-                                                    className="h-1.5 w-16"
-                                                />
-                                                <span className="text-xs text-muted-foreground tabular-nums w-8">
-                                                    {taskPct}%
-                                                </span>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                );
-                            })}
-                        </TableBody>
-                    </Table>
-                </div>
-            ) : (
-                <Card className="py-12">
-                    <CardContent className="text-center text-muted-foreground">
-                        <p className="text-lg mb-2">No prep list for this date</p>
-                        <p className="text-sm">
-                            Click &quot;Generate&quot; to create tasks from par
-                            levels
-                        </p>
+            {/* Tasks table or empty state */}
+            {!isLoading && tasks.length === 0 ? (
+                <Card className="py-4">
+                    <CardContent>
+                        <EmptyState
+                            title="No prep list for this date"
+                            description='Click "Generate" to create tasks from par levels'
+                        />
                     </CardContent>
                 </Card>
+            ) : (
+                <DataTable
+                    columns={COLUMNS}
+                    isLoading={isLoading}
+                    isEmpty={false}
+                >
+                    {tasks.map((task) => {
+                        const taskPct =
+                            task.quantity_needed > 0
+                                ? Math.round(
+                                    (task.quantity_done /
+                                        task.quantity_needed) *
+                                    100
+                                )
+                                : 0;
+                        return (
+                            <TableRow key={task.id}>
+                                <TableCell className="font-medium">
+                                    {task.menu_item?.name ?? '—'}
+                                </TableCell>
+                                <TableCell>
+                                    {task.menu_item?.station && (
+                                        <StationBadge
+                                            station={task.menu_item.station}
+                                        />
+                                    )}
+                                </TableCell>
+                                <TableCell className="text-center tabular-nums">
+                                    {task.quantity_needed}
+                                </TableCell>
+                                <TableCell className="text-center tabular-nums">
+                                    {task.quantity_done}
+                                </TableCell>
+                                <TableCell className="text-center">
+                                    <StatusBadge status={task.status} />
+                                </TableCell>
+                                <TableCell className="text-right">
+                                    <div className="flex items-center gap-2 justify-end">
+                                        <Progress
+                                            value={taskPct}
+                                            className="h-1.5 w-16"
+                                        />
+                                        <span className="text-xs text-muted-foreground tabular-nums w-8">
+                                            {taskPct}%
+                                        </span>
+                                    </div>
+                                </TableCell>
+                            </TableRow>
+                        );
+                    })}
+                </DataTable>
             )}
         </div>
     );

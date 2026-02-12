@@ -6,6 +6,8 @@ import { usePrepList } from '@/hooks/use-prep-list';
 import { useStations } from '@/hooks/use-stations';
 import { generatePrepList } from '@/app/actions/prep';
 import { toast } from 'sonner';
+
+import { Button } from '@/components/ui/button';
 import {
     Card,
     CardContent,
@@ -13,10 +15,11 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
+
+import { PageHeader } from '@/components/layout/page-header';
+import { StatCard } from '@/components/stat-card';
+import { ProgressCard } from '@/components/progress-card';
+import { StationBadge } from '@/components/station-badge';
 
 function todayString() {
     return new Date().toISOString().slice(0, 10);
@@ -24,7 +27,11 @@ function todayString() {
 
 export default function AdminDashboard() {
     const today = todayString();
-    const { data: prepList, isLoading: listLoading, refetch } = usePrepList(today);
+    const {
+        data: prepList,
+        isLoading: listLoading,
+        refetch,
+    } = usePrepList(today);
     const { data: menuItems } = useMenuItems();
     const { data: stations } = useStations();
     const [generating, setGenerating] = useState(false);
@@ -59,121 +66,66 @@ export default function AdminDashboard() {
 
     return (
         <div className="p-6 md:p-8 space-y-8 max-w-6xl">
-            {/* Header */}
-            <div className="flex items-start justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight">
-                        Dashboard
-                    </h1>
-                    <p className="text-muted-foreground text-sm mt-1">
-                        {new Date().toLocaleDateString('en-US', {
-                            weekday: 'long',
-                            month: 'long',
-                            day: 'numeric',
-                            year: 'numeric',
-                        })}
-                    </p>
-                </div>
-                <Button
-                    onClick={handleGenerate}
-                    disabled={generating}
-                    className="bg-accent hover:bg-accent/90 text-white"
-                >
-                    {generating ? 'Generating…' : "Generate Today's Prep"}
-                </Button>
-            </div>
+            <PageHeader
+                title="Dashboard"
+                description={new Date().toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric',
+                })}
+                actions={
+                    <Button
+                        onClick={handleGenerate}
+                        disabled={generating}
+                        className="bg-accent hover:bg-accent/90 text-white"
+                    >
+                        {generating
+                            ? 'Generating…'
+                            : "Generate Today's Prep"}
+                    </Button>
+                }
+            />
 
             {/* Stats row */}
             <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardDescription className="text-xs">
-                            Total Tasks
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        {listLoading ? (
-                            <Skeleton className="h-8 w-16" />
-                        ) : (
-                            <p className="text-3xl font-bold">
-                                {stats.total}
-                            </p>
-                        )}
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardDescription className="text-xs">
-                            Completed
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        {listLoading ? (
-                            <Skeleton className="h-8 w-16" />
-                        ) : (
-                            <p className="text-3xl font-bold text-emerald-500">
-                                {stats.done}
-                            </p>
-                        )}
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardDescription className="text-xs">
-                            In Progress
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        {listLoading ? (
-                            <Skeleton className="h-8 w-16" />
-                        ) : (
-                            <p className="text-3xl font-bold text-amber-500">
-                                {stats.inProgress}
-                            </p>
-                        )}
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardDescription className="text-xs">
-                            Pending
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        {listLoading ? (
-                            <Skeleton className="h-8 w-16" />
-                        ) : (
-                            <p className="text-3xl font-bold text-muted-foreground">
-                                {stats.pending}
-                            </p>
-                        )}
-                    </CardContent>
-                </Card>
+                <StatCard
+                    label="Total Tasks"
+                    value={stats.total}
+                    isLoading={listLoading}
+                />
+                <StatCard
+                    label="Completed"
+                    value={stats.done}
+                    valueClassName="text-emerald-500"
+                    isLoading={listLoading}
+                />
+                <StatCard
+                    label="In Progress"
+                    value={stats.inProgress}
+                    valueClassName="text-amber-500"
+                    isLoading={listLoading}
+                />
+                <StatCard
+                    label="Pending"
+                    value={stats.pending}
+                    valueClassName="text-muted-foreground"
+                    isLoading={listLoading}
+                />
             </div>
 
             {/* Progress */}
             {prepList && stats.total > 0 && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="text-lg">
-                            Today&apos;s Progress
-                        </CardTitle>
-                        <CardDescription>
-                            {stats.pct}% complete
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Progress value={stats.pct} className="h-3" />
-                    </CardContent>
-                </Card>
+                <ProgressCard
+                    title="Today's Progress"
+                    description={`${stats.pct}% complete`}
+                    value={stats.pct}
+                />
             )}
 
             {/* Quick info */}
             <div className="grid gap-4 md:grid-cols-2">
-                <Card>
+                <Card className="animate-slide-up">
                     <CardHeader>
                         <CardTitle className="text-lg">Menu Items</CardTitle>
                         <CardDescription>
@@ -186,27 +138,15 @@ export default function AdminDashboard() {
                         </p>
                         <div className="flex flex-wrap gap-1.5">
                             {stations?.map((s) => (
-                                <Badge
-                                    key={s.id}
-                                    variant="outline"
-                                    className="text-xs"
-                                    style={{
-                                        borderColor: s.color,
-                                        color: s.color,
-                                    }}
-                                >
-                                    {s.name}
-                                </Badge>
+                                <StationBadge key={s.id} station={s} />
                             ))}
                         </div>
                     </CardContent>
                 </Card>
 
-                <Card>
+                <Card className="animate-slide-up">
                     <CardHeader>
-                        <CardTitle className="text-lg">
-                            Kitchen View
-                        </CardTitle>
+                        <CardTitle className="text-lg">Kitchen View</CardTitle>
                         <CardDescription>
                             Share this link with your kitchen crew
                         </CardDescription>

@@ -13,6 +13,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { PageHeader } from '@/components/layout/page-header';
 
 interface ParRow {
     menu_item_id: string;
@@ -50,14 +51,10 @@ export default function ParLevelsPage() {
 
     return (
         <div className="p-6 md:p-8 max-w-6xl space-y-6">
-            <div>
-                <h1 className="text-2xl font-bold tracking-tight">
-                    Par Levels
-                </h1>
-                <p className="text-muted-foreground text-sm mt-1">
-                    Target prep quantities per item, per day of week
-                </p>
-            </div>
+            <PageHeader
+                title="Par Levels"
+                description="Target prep quantities per item, per day of week"
+            />
 
             <div className="border rounded-lg overflow-x-auto">
                 <Table>
